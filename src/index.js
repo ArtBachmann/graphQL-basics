@@ -90,6 +90,7 @@ const typeDefs = `
   type Mutation {
     createUser(name: String!, email: String!, age: Int): User!
     createPost(title: String!, body: String!, published: Boolean!, author: ID!): Post!
+    createComment(text: String!, author: ID!, post: ID!): Comment!
   }
 
   type User {
@@ -200,8 +201,28 @@ const resolvers = {
       posts.push(post);
 
       return post;
+    },
+    createComment(parent, args, ctx, info) {
+      const userExists = users.some((user) => {
+        return user.id === args.author
+        // same but only true if the post is published
+        const postExists = posts.some((post) => post.id === args.post && post.published)
+
+        if (!userExists || !postExists) {
+          throw new Error('Unable to find user or post')
+        }
+        const comment = {
+          id: uuidv4,
+          text: args.text,
+          author: args.author,
+          post: args.post
+        }
+        comments.push(comment)
+        return comment
+      })
     }
   },
+
   Post: {
     // resolver method, is called for every post individually.
     author(parent, args, ctx, info) {
@@ -219,6 +240,7 @@ const resolvers = {
       });
     }
   },
+
   Comment: {
     // Set up an Object
     author(parent, args, ctx, info) {
@@ -233,6 +255,7 @@ const resolvers = {
       }); // parent is Comment.
     }
   },
+
   // Custom resolver function to teach GraphQL how get correct data.
   // When query for users relational with posts is made.
   User: {
@@ -255,7 +278,6 @@ const server = new GraphQLServer({
   typeDefs,
   resolvers
 });
-
 server.start(() => {
   console.log('The server is up!');
 });
