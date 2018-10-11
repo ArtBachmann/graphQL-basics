@@ -88,9 +88,29 @@ const typeDefs = `
   }
 
   type Mutation {
-    createUser(name: String!, email: String!, age: Int): User!
-    createPost(title: String!, body: String!, published: Boolean!, author: ID!): Post!
-    createComment(text: String!, author: ID!, post: ID!): Comment!
+    createUser(data: CreateUserInput): User!
+    deleteUser(id: ID!): User!
+    createPost(data: CreatePostInput): Post!
+    createComment(data: CreateCommentInput): Comment!
+  }
+  
+  input CreateUserInput { 
+    name: String!
+    email: String!
+    age: Int
+  }
+
+  input CreatePostInput {
+    title: String!
+    body: String!
+    published: Boolean!    
+    author: ID!
+  }
+
+  input CreateCommentInput {
+    text: String! 
+    author: ID!
+    post: ID!   
   }
 
   type User {
@@ -117,7 +137,8 @@ const typeDefs = `
     author: User!
     post: Post!
   }
-`;
+`
+// Input types can only have scalar values
 // Resolvers
 const resolvers = {
   Query: {
@@ -169,23 +190,34 @@ const resolvers = {
   Mutation: {
     createUser(parent, args, ctx, info) {
       const emailTaken = users.some(user => {
-        return user.email === args.email;
+        return user.email === args.data.email;
       });
       if (emailTaken) {
         throw new Error('Email taken');
       }
       const user = {
         id: uuidv4(),
-        name: args.name,
-        email: args.email,
-        age: args.age
+        ...args.data
+        // name: args.name,
+        // email: args.email,
+        // age: args.age
       };
       users.push(user);
 
       return user;
     },
+    deleteUser(parent, args, ctx, info) {
+      const userIndex = users.findIndex((user) => user.id === args.id)
+
+      if (userIndex === -1) {
+        throw new Error('User not found')
+      }
+
+      const deletedUsers = users.splice(userIndex, 1)
+
+    },
     createPost(parent, args, ctx, info) {
-      const userExists = users.some(user => user.id === args.author);
+      const userExists = users.some(user => user.id === args.data.author);
 
       if (!userExists) {
         throw new Error('User not found');
@@ -193,10 +225,7 @@ const resolvers = {
 
       const post = {
         id: uuidv4(),
-        title: args.title,
-        body: args.body,
-        published: args.published,
-        author: args.author
+        ...args.data
       };
       posts.push(post);
 
@@ -206,16 +235,14 @@ const resolvers = {
       const userExists = users.some((user) => {
         return user.id === args.author
         // same but only true if the post is published
-        const postExists = posts.some((post) => post.id === args.post && post.published)
+        const postExists = posts.some((post) => post.id === args.data.post && post.published)
 
         if (!userExists || !postExists) {
           throw new Error('Unable to find user or post')
         }
         const comment = {
           id: uuidv4,
-          text: args.text,
-          author: args.author,
-          post: args.post
+          ...args.data
         }
         comments.push(comment)
         return comment
@@ -240,7 +267,6 @@ const resolvers = {
       });
     }
   },
-
   Comment: {
     // Set up an Object
     author(parent, args, ctx, info) {
